@@ -1,0 +1,416 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+class BotpressApiDemo extends StatefulWidget {
+  @override
+  _BotpressApiDemoState createState() => _BotpressApiDemoState();
+}
+
+class _BotpressApiDemoState extends State<BotpressApiDemo> {
+  final String baseUrl = "https://api.botpress.cloud";
+  final String accessToken =
+      "bp_pat_lNQ0CqYgekgcxz7hhAE9B87huTRHTG3Hwd4K"; // Replace with your access token
+  final String botId =
+      "b0ce2012-ca06-48de-88d4-25ffe6bb47e4"; // Replace with your bot ID
+  final String integrationId =
+      "87b01760-ede8-49d5-afc6-6afc0d0d1bdb"; // Replace with your integration ID
+
+  List<Map<String, dynamic>> conversations = [];
+
+  TextEditingController messageController = TextEditingController();
+
+  Future<List<Map<String, dynamic>>> listConversations() async {
+    String url = '$baseUrl/v1/chat/conversations';
+
+    http.Response response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Content-type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+        'x-bot-id': botId,
+        'x-integration-id': integrationId,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      Map<String, dynamic> responseBody = json.decode(response.body);
+      List<dynamic> conversationList = responseBody['conversations'];
+
+      // Filter out conversations that are not related to WhatsApp
+      List whatsappConversations = conversationList
+          .where((conversation) =>
+              conversation['tags'] != null &&
+              conversation['tags']['whatsapp:userPhone'] != null)
+          .toList();
+
+      return whatsappConversations.cast<Map<String, dynamic>>();
+    } else {
+      throw Exception('Failed to load conversations');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> listMessages(String conversationId) async {
+    String url = '$baseUrl/v1/chat/messages';
+
+    if (conversationId != null) {
+      url = '$url?conversationId=$conversationId';
+    }
+
+    http.Response response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Content-type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+        'x-bot-id': botId,
+        'x-integration-id': integrationId,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      Map<String, dynamic> responseBody = json.decode(response.body);
+      List<dynamic> messages = responseBody['messages'];
+      return messages.cast<Map<String, dynamic>>();
+    } else {
+      throw Exception('Failed to load messages');
+    }
+  }
+
+  void navigateToMessageScreen(
+      List<Map<String, dynamic>> messages, Map<String, dynamic> conversation) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MessageScreen(
+          messages: messages,
+          conversation: conversation,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    listConversations().then((conversations) {
+      setState(() {
+        this.conversations = conversations;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Leads'),
+        backgroundColor: Color(0xFF019F7D), // Secondary color
+      ),
+      body: Container(
+        color: Color(0xFF111B21), // Background color
+        child: ListView.builder(
+          itemCount: conversations.length,
+          itemBuilder: (context, index) {
+            final conversation = conversations[index];
+            final id = conversation['id'];
+            final channel = conversation['channel'];
+            final number = conversation['tags']['whatsapp:userPhone'];
+            print(conversation['tags']);
+            final latestMessage =
+                conversation['tags']['whatsapp:latestMessage'];
+
+            return ListTile(
+              title: Text(
+                number ?? "Webchat",
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                latestMessage ?? "",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey),
+              ),
+              onTap: () {
+                listMessages(id).then((messages) {
+                  navigateToMessageScreen(messages, conversation);
+                });
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class MessageScreen extends StatefulWidget {
+  List<Map<String, dynamic>> messages;
+  final Map<String, dynamic> conversation;
+  MessageScreen({required this.messages, required this.conversation});
+
+  @override
+  _MessageScreenState createState() => _MessageScreenState();
+}
+
+class _MessageScreenState extends State<MessageScreen> {
+  final String baseUrl = "https://api.botpress.cloud";
+  final String accessToken =
+      "bp_pat_lNQ0CqYgekgcxz7hhAE9B87huTRHTG3Hwd4K"; // Replace with your access token
+  final String botId =
+      "b0ce2012-ca06-48de-88d4-25ffe6bb47e4"; // Replace with your bot ID
+  final String integrationId =
+      "87b01760-ede8-49d5-afc6-6afc0d0d1bdb"; // Replace with your integration ID
+  TextEditingController _messageController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    print(widget.messages);
+  }
+
+  Future<List<Map<String, dynamic>>> listMessages(String conversationId) async {
+    String url = '$baseUrl/v1/chat/messages';
+
+    if (conversationId != null) {
+      url = '$url?conversationId=$conversationId';
+    }
+
+    http.Response response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Content-type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+        'x-bot-id': botId,
+        'x-integration-id': integrationId,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      Map<String, dynamic> responseBody = json.decode(response.body);
+      List<dynamic> messages = responseBody['messages'];
+      return messages.cast<Map<String, dynamic>>();
+    } else {
+      throw Exception('Failed to load messages');
+    }
+  }
+
+  Future<Map<String, dynamic>?> createMessage({
+    required String payloadType,
+    required String userId,
+    required String conversationId,
+    required String messageType,
+    required Map<String, dynamic> tags,
+    Map<String, dynamic>? schedule,
+    required String text,
+  }) async {
+    String url = '$baseUrl/v1/chat/messages';
+
+    Map<String, dynamic> requestBody = {
+      'payload': {
+        'type': payloadType,
+        'text': text
+      }, // Include the text property
+      'userId': userId,
+      'conversationId': conversationId,
+      'type': messageType,
+      'tags': tags,
+    };
+
+    if (schedule != null) {
+      requestBody['schedule'] = schedule;
+    }
+
+    http.Response response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+        'x-bot-id': botId,
+        'x-integration-id': integrationId,
+      },
+      body: json.encode(requestBody),
+    );
+    print(response.body);
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      return null;
+    }
+  }
+
+  Future<void> sendMessageWithImage({
+    required String userId,
+    required String conversationId,
+    required String imageUrl,
+    required Map<String, dynamic> tags,
+  }) async {
+    // Implementation remains the same
+  }
+
+  Future<void> sendMessage() async {
+    String messageText = _messageController.text;
+    if (messageText.isNotEmpty) {
+      Map<String, dynamic> tags = {}; // Replace with your tags
+
+      createMessage(
+              payloadType: 'Text',
+              userId: '1406d2a3-6ec4-4c09-aa0f-ec979ac54259',
+              conversationId: 'e072aa5f-dec5-430e-8899-25ca0ff09f04',
+              messageType: 'text',
+              tags: tags,
+              text: messageText)
+          .then((createdMessage) async {
+        print('Created Text Message: $createdMessage');
+
+        // Refresh the message list after sending a message
+        await _refreshMessages();
+      }).catchError((e) {
+        print('Error sending message: $e');
+      });
+      _messageController.clear();
+    }
+  }
+
+  Future<void> _refreshMessages() async {
+    widget.messages = await listMessages(widget.conversation['id']);
+    setState(() {});
+  }
+
+  void _showImageDialog() {
+    // Implementation remains the same
+  }
+
+  void _showDocumentDialog() {
+    // Implementation remains the same
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Messages'),
+        backgroundColor: Color(0xFF019F7D), // Secondary color
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refreshMessages,
+        child: Column(
+          children: <Widget>[
+            Expanded(
+              child: Container(
+                color: Color(0xFF111B21), // Background color
+                child: ListView.builder(
+                  padding: EdgeInsets.all(10),
+                  itemCount: widget.messages.length,
+                  reverse: true, // To display messages from the bottom
+                  itemBuilder: (context, index) {
+                    final message = widget.messages[index];
+                    final payload = message['payload'];
+                    final type = message['type'];
+                    final isSent = message['direction'] == 'outgoing';
+                    final messageText = payload['text'];
+                    final messageImage = payload['imageUrl'];
+
+                    if (type == 'text') {
+                      return Align(
+                        alignment: isSent
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: _buildMessageBubble(isSent, messageText),
+                      );
+                    } else if (type == 'image') {
+                      return Align(
+                        alignment: isSent
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          margin: EdgeInsets.symmetric(
+                              vertical: 4.0, horizontal: 8.0),
+                          child: Image.network(
+                            messageImage,
+                            height: 150,
+                            width: 150,
+                          ),
+                        ),
+                      );
+                    }
+
+                    return SizedBox.shrink(); // Hide if type is not recognized
+                  },
+                ),
+              ),
+            ),
+            Container(
+              height: 60, // Set your desired height here
+              color: Color.fromARGB(255, 27, 43, 53), // Background color
+              child: Row(
+                children: <Widget>[
+                  IconButton(
+                    icon: Icon(Icons.image),
+                    onPressed: _showImageDialog,
+                    color: Color(0xFF019F7D), // Secondary color
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.attach_file),
+                    onPressed: _showDocumentDialog,
+                    color: Color(0xFF019F7D), // Secondary color
+                  ),
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(100),
+                          color: Color.fromARGB(141, 124, 124, 124),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 5),
+                          child: TextField(
+                            maxLines: null,
+                            expands: true,
+                            style: TextStyle(color: Colors.white),
+                            controller: _messageController,
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.send),
+                    onPressed: sendMessage,
+                    color: Color(0xFF019F7D), // Secondary color
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(bool isSent, String message) {
+    return Align(
+      alignment: isSent ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+        padding: EdgeInsets.all(8.0),
+        decoration: BoxDecoration(
+          color: isSent ? Color(0xFF019F7D) : Color.fromARGB(141, 124, 124, 124),
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        child: Text(
+          message,
+          style: TextStyle(fontSize: 16.0,color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+void main() {
+  runApp(MaterialApp(
+    home: BotpressApiDemo(),
+  ));
+}
