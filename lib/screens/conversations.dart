@@ -881,7 +881,69 @@ class _MessageScreenState extends State<MessageScreen> {
       // The picked image file can be accessed using pickedFile.path
     }
   }
-
+  void _showConfirmDelete() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: MediaQuery.of(context).size.height *
+              0.5, // Adjust height as needed
+          color: Colors.black,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 35,
+                  ),
+                  Center(
+                      child: Text(
+                    'Detail',
+                    style: TextStyle(color: Colors.white,
+                                           fontFamily: 'SF',),
+                  ))
+                ],
+              ),
+              Divider(
+                color: Colors.white,
+              ),
+              Text(widget.conversation['whatsapp:name'] ?? "",
+                    style: TextStyle(color: Colors.white,
+                                           fontFamily: 'SF',),),
+                                           Spacer(),
+               GestureDetector(
+                onTap: (){
+                 deleteConversation(widget.conversation['id'] );
+                },
+                 child: Container(
+                             margin:
+                    const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+                             padding: const EdgeInsets.all(8.0),
+                             decoration: BoxDecoration(
+                  color:Color.fromARGB(141, 235, 17, 17),
+                  borderRadius: BorderRadius.circular(12),
+                             ),
+                             child: Text(
+                  "Delete Conversation",
+                  style: const TextStyle(fontSize: 16.0, color: Colors.white,
+                                             fontFamily: 'SF',),
+                             ),
+                           ),
+               ),
+            ],
+          ),
+        );
+      },
+    );
+  }
   void _showQuickRepliesPopup() {
     showCupertinoModalPopup(
       context: context,
@@ -942,6 +1004,28 @@ class _MessageScreenState extends State<MessageScreen> {
       },
     );
   }
+Future<void> deleteConversation(String conversationId) async {
+  String url = '$baseUrl/v1/chat/conversations/$conversationId';
+
+  http.Response response = await http.delete(
+    Uri.parse(url),
+    headers: {
+      'Content-type': 'application/json',
+      'Authorization': 'Bearer ${widget.accessToken}',
+      'x-bot-id': widget.botId!,
+      'x-integration-id': widget.integrationId!,
+    },
+  );
+  if (response.statusCode == 200) {
+    print('Conversation deleted');
+    Navigator.pop(context);
+     Navigator.pop(context);
+    // Optionally, navigate away or update the UI
+  } else {
+    print('Failed to delete conversation');
+    // Handle error
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -990,6 +1074,17 @@ class _MessageScreenState extends State<MessageScreen> {
                 _launchURL("tel:${widget.conversation['tags']['whatsapp:userPhone']}");
               },
               child: Icon(CupertinoIcons.phone_fill,size: 30,)),
+                 SizedBox(width: 20,),
+                  GestureDetector(
+                    onTap: (){
+                      _showConfirmDelete();
+                    },
+                    child: const Icon(
+                                CupertinoIcons.ellipsis,
+                                color: Colors.white,
+                                size: 25,
+                              ),
+                  ),
           ],
         ),
         backgroundColor: Colors.black, // Secondary color

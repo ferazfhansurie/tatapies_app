@@ -19,8 +19,8 @@
     }
   ],
   "hosting": {
-    "site": "jutacrm",
-    "public": "public",
+    "public": "build/web",
+    "site":"jutacrm",
     "ignore": [
       "firebase.json",
       "**/.*",
