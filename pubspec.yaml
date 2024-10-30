@@ -38,15 +38,21 @@ dependencies:
   cupertino_icons: ^1.0.2
   table_calendar: ^3.0.9
   fl_chart: ^0.64.0
-  firebase_auth: ^4.11.1
+  firebase_auth: ^4.16.0
   firebase_messaging: ^14.7.1
   url_launcher: ^6.1.14
   flutter_local_notifications: ^9.0.0 
   cloud_firestore: ^4.11.0
   image_picker: ^1.0.4
-  fluttertoast: ^8.2.2
+  fluttertoast: ^8.2.4
   csv: ^5.1.1
   file_picker: ^6.0.0
+  flutter_datetime_picker_plus: ^2.1.0
+  adaptive_theme: ^3.4.1
+  permission_handler: ^11.1.0
+  firebase_storage: ^11.6.0
+  video_player: ^2.8.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

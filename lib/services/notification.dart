@@ -39,7 +39,8 @@ class NotificationService {
       iOS: initializationSettingsIOS,
     );
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings,);
+    
+    
 
     if (Platform.isIOS) {
       const IOSNotificationDetails iOSPlatformChannelSpecifics =

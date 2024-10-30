@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +32,7 @@ Future<void> main() async {
           apiKey: "AIzaSyCFlkTGPLX5ir9nYOJQqf9ypE_k3JeIDy0",
           projectId: "onboarding-a5fcb",
           messagingSenderId: "334607574757",
-          appId: "1:334607574757:android:9aa9e893edfa28ec87960c"));
+          appId: (Platform.isIOS)?"1:334607574757:ios:953433632440d05587960c":"1:334607574757:android:9aa9e893edfa28ec87960c"));//"1:334607574757:android:9aa9e893edfa28ec87960c"));
             await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true, provisional: false);
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(alert: true,badge: true,sound: true,);
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -41,7 +44,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoApp(
+    return AdaptiveTheme(
+      light: ThemeData.light(useMaterial3: true),
+      dark: ThemeData.dark(useMaterial3: true),
+      initial: AdaptiveThemeMode.light,
+      builder: (theme, darkTheme) => CupertinoApp(
       title: 'juta',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: [
@@ -50,7 +57,7 @@ class MyApp extends StatelessWidget {
       ],
       theme: const CupertinoThemeData(
         brightness: Brightness.light,
-        scaffoldBackgroundColor: Color(0xFF111B21),
+        scaffoldBackgroundColor: Color.fromARGB(255, 255, 255, 255),
         primaryColor: Colors.white,
         textTheme: CupertinoTextThemeData(
           navActionTextStyle: TextStyle(
@@ -71,6 +78,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => Home(),
         '/login': (context) => const LoginScreen(),
       },
+    ),
     );
   }
 }
@@ -80,10 +88,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       name:
           'com.tedainternational.tdlabs', // Replace with your app name if needed
       options: FirebaseOptions(
+        storageBucket: 'onboarding-a5fcb.appspot.com',
           apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
           projectId: "onboarding-a5fcb",
           messagingSenderId: "334607574757",
-          appId: "1:334607574757:android:9aa9e893edfa28ec87960c"));
+          appId: (Platform.isIOS)?"1:334607574757:ios:953433632440d05587960c":"1:334607574757:android:9aa9e893edfa28ec87960c"));
   await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true, provisional: false);
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(alert: true,badge: true,sound: true,);
   await setupFlutterNotifications();
@@ -95,6 +104,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
         print("Received a message: ${message.notification!.title}");
       });
+
       if (message.notification!.title!.contains("Juta Software")) {
         Map<String, dynamic> noti = {};
         RegExp regExp = RegExp(r'(\w+) Messaged Our Bot (\d+)');
@@ -112,7 +122,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         noti['formatted_time'] = formattedSentTime;
       noti['body'] = message.notification!.body;
 
-        addNotificationToUser("001", noti);
+   
       }
       print(
           'Message also contained a notification: ${message.notification!.title}');
@@ -177,19 +187,4 @@ void showFlutterNotification(RemoteMessage message) {
   }
 }
 
-FirebaseFirestore firestore = FirebaseFirestore.instance;
-Future<void> addNotificationToUser(
-    String companyId, Map<String,dynamic> notification) async {
-  DocumentReference userRef = firestore.collection('companies').doc(companyId);
-  await userRef.update({
-    "notification": FieldValue.arrayUnion([
-        {
-          "name": notification['name'],
-          "phone":notification['phone_number'],
-          "read":false,
-          "sentTime": notification['formatted_time'],
-          "body":notification['body'],
-        },
-      ])
-  });
-}
+

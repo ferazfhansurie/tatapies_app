@@ -1,51 +1,172 @@
+// ignore_for_file: must_be_immutable
+
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:juta_app/screens/adduser.dart';
 import 'package:juta_app/screens/dashboard.dart';
 import 'package:juta_app/screens/appointment.dart';
 import 'package:juta_app/screens/automation.dart';
+import 'package:juta_app/screens/materials.dart';
+import 'package:juta_app/screens/notification.dart';
+import 'package:juta_app/screens/orders.dart';
 import 'package:juta_app/services/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'screens/conversations.dart';
 
 class CustomTabBar extends StatefulWidget {
   final int currentIndex;
+  int notificationCount;
   final Function(int) onTap;
+  final Function(int) updateNotificationCount; // Add this callback
 
-  CustomTabBar({required this.currentIndex, required this.onTap});
+  CustomTabBar({
+    required this.currentIndex,
+    required this.notificationCount,
+    required this.onTap,
+    required this.updateNotificationCount, // Pass the callback
+  });
 
   @override
   _CustomTabBarState createState() => _CustomTabBarState();
 }
 
 class _CustomTabBarState extends State<CustomTabBar> {
+  List<dynamic> notifications = [];
+     String email = '';
+      String notificationId ='';
+      User? user = FirebaseAuth.instance.currentUser;
+  
+  @override
+  void initState() {
+    super.initState();
+      email = user!.email!;
+    getUser();
+    
+  }
+Future<void> getUser() async {
+  try {
+    final userSnapshot = await FirebaseFirestore.instance
+        .collection("user")
+        .doc(email)
+        .collection("Notifications")
+        .get();
+
+    if (userSnapshot.docs.isNotEmpty) {
+      notifications.clear();
+      int unreadCount = 0;
+
+      for (final doc in userSnapshot.docs) {
+        final notificationId = doc.id;
+        final data = doc.data();
+   
+
+        if (data.containsKey("notifications")) {
+          final rawNotificationList = data["notifications"];
+
+          // Assuming each notification has 6 elements as per your data structure
+          for (int i = 0; i < rawNotificationList.length; i += 6) {
+            var notification = {
+              'id': notificationId,
+              'title': rawNotificationList[i],
+              'timestamp': rawNotificationList[i + 1], // Handle timestamp conversion if needed
+              'details': rawNotificationList[i + 2],
+              'name': rawNotificationList[i + 3],
+              'phone': rawNotificationList[i + 4],
+              'isRead': rawNotificationList[i + 5]
+            };
+  
+            if (!notification['isRead']) {
+              unreadCount++;
+            }
+
+            notifications.add(notification);
+          }
+        }
+      }
+
+      setState(() {
+        widget.notificationCount = unreadCount;
+        widget.updateNotificationCount(widget.notificationCount);
+      });
+    } else {
+      print("No documents found in Notifications subcollection");
+    }
+  } catch (e) {
+    print("Error: $e");
+  }
+}
   @override
   Widget build(BuildContext context) {
-    return (kIsWeb)?Container():Padding(
-      padding: EdgeInsets.symmetric(horizontal: 65, vertical: 10),
-      child: Container(
-        width: 50,
-        height: 45,
-        decoration: BoxDecoration(
-            color: Color(0xFF3790DD), borderRadius: BorderRadius.circular(100)),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          crossAxisAlignment: CrossAxisAlignment.center,
+    return Padding(
+      padding: EdgeInsets.symmetric( ),
+      child: Container(height: MediaQuery.of(context).size.height *10/100,
+        child: Column(
           children: [
-            buildTabItem(Icons.home_filled, 0),
-            buildTabItem(Icons.message, 1),
-          //  buildTabItem(Icons.android , 2),
-           buildTabItem(CupertinoIcons.calendar, 3),
-              
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  buildTabItem(Icons.home_filled, 0),
+                   buildTabItem(Icons.chat , 1),
+                  buildTabItem(Icons.shopping_basket , 2),
+                  buildTabItemNoti(Icons.delivery_dining , 3),
+                   buildTabItemNoti(Icons.notifications , 4), 
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+ Widget buildTabItemNoti(IconData icon, int index) {
+  bool isSelected = index == widget.currentIndex;
 
+  return Stack(
+    children: [
+      InkWell(
+        onTap: () => widget.onTap(index),
+        splashColor: Colors.transparent,
+        child: Container(
+          child: Icon(
+            icon,
+            size: 35,
+            color: isSelected ? Colors.white : Color(0xFFB3B3B3),
+          ),
+        ),
+      ),
+      if(widget.notificationCount != 0)
+      Positioned(
+        right: 0,
+        child: Container(
+          padding: EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(100),
+          ),
+          constraints: BoxConstraints(
+            minWidth: 15,
+            minHeight: 15,
+          ),
+          child: Text(
+            '${widget.notificationCount}', // Use the notification count from the parameter
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    ],
+  );
+}
   Widget buildTabItem(IconData icon, int index) {
     bool isSelected = index == widget.currentIndex;
 
@@ -55,7 +176,7 @@ class _CustomTabBarState extends State<CustomTabBar> {
       child: Container(
         child: Icon(
           icon,
-          size: 25,
+          size: 30,
           color: isSelected ? Colors.white : Color(0xFFB3B3B3),
         ),
       ),
@@ -72,11 +193,20 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   int currentIndex = 0;
+  int notificationCount = 0; // Add a variable to track the notification count
   FirebaseAuth auth = FirebaseAuth.instance;
   User? user = FirebaseAuth.instance.currentUser;
   String email = '';
   String firstName = '';
   String company = '';
+    String accessToken = ""; // Replace with your access token
+  String botId = ""; // Replace with your bot ID
+  String integrationId = ""; // Replace with your integration ID
+  String workspaceId = '';
+  String apiKey = ''; // Replace with your actual token
+    String ghlToken = '';
+    String companyId = '';
+    String locationId = "";
   @override
   void initState() {
     // TODO: implement initState
@@ -103,11 +233,58 @@ class _HomeState extends State<Home> {
         setState(() {
           firstName = snapshot.get("name");
           company = snapshot.get("company");
+             companyId = snapshot.get("companyId");
           print(firstName);
         });
       } else {
         print("Snapshot not found");
       }
+    }).then((value) {
+      FirebaseFirestore.instance
+          .collection("companies")
+          .doc(companyId)
+          .get()
+          .then((snapshot) async {
+        if (snapshot.exists) {
+          setState(() {
+            accessToken = snapshot.get("accessToken");
+            botId = snapshot.get("botId");
+            integrationId = snapshot.get("integrationId");
+            workspaceId = snapshot.get("workspaceId");
+            apiKey = snapshot.get("apiKey");
+            ghlToken = snapshot.get("ghlToken");
+            locationId = snapshot.get("locationId");
+          });
+          Map<String, dynamic>? data = snapshot.data();
+          //Blocked
+
+     
+
+          await FirebaseFirestore.instance
+              .collection("companies")
+              .doc(companyId)
+              .collection("contacts")
+              .get()
+              .then((querySnapshot) {
+            if (!querySnapshot.docs.isEmpty) {
+            } else {
+              print("Contacts not found");
+            }
+          }).catchError((error) {
+            print("Error loading contacts: $error");
+          });
+
+    final companySnapshot = await FirebaseFirestore.instance
+        .collection("companies")
+        .doc(companyId)
+        .collection("employee")
+        .get();
+
+         
+        } else {
+          print("Snapshot not found");
+        }
+      });
     });
     _scaffoldKey.currentState?.openDrawer();
   }
@@ -148,27 +325,35 @@ class _HomeState extends State<Home> {
     return Scaffold(
       key: _scaffoldKey,
       drawer:(kIsWeb )? null : Drawer(
-        width: 225,
+        width: 350,
         child: Container(
-          color: Colors.black,
+       
           child: Column(
             children: [
               Expanded(
                 child: ListView(
-                  padding: EdgeInsets.symmetric(vertical: 50, horizontal: 10),
+                  padding: EdgeInsets.symmetric(vertical: 50, horizontal: 20),
                   children: [
                     Container(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(CupertinoIcons.person_alt_circle, size: 50),
+                          Container(
+                            height: 75,
+                            width: 75,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(100),
+                               color: Color(0xFF2D3748),
+                            ),
+  child: Center(child: Text(firstName.isNotEmpty ? firstName.substring(0, 1) : '',style: TextStyle(color: Colors.white,fontSize: 20),)),
+),
                           Text(
                             firstName,
                             maxLines: 1,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                                color: Color(0xFF2D3748),
                             ),
                           ),
                           Text(
@@ -186,16 +371,49 @@ class _HomeState extends State<Home> {
                     SizedBox(
                       height: 10,
                     ),
-                    Divider(color: Colors.white),
+                  
+                     Divider( color: Color(0xFF2D3748),),
                     ListTile(
-                      title: Text('About Us',
+                      leading: Icon(Icons.person_add),
+                      title: Text('Add Users',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                             color: Color(0xFF2D3748),
                           )),
                       onTap: () {
                         // Add your functionality for this sidebar item
+  Navigator.pop(context);
+                       Navigator.of(context)
+                                .push(CupertinoPageRoute(builder: (context) {
+                              return AddUser(
+                                companyId:companyId,
+                                apiKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb21wYW55X2lkIjoiNTNIZ1Z5eHhvTlVjNXRKZ3c4ZksiLCJ2ZXJzaW9uIjoxLCJpYXQiOjE3MDkyNzYzODgxMDAsInN1YiI6IkNTdHdJdktoZlFwQWxsdEV3VUd6In0.NeN-P57GQ3Kz62wcCVlXrKjsI7g70lawxMBnbh7M2u8",
+                                email: email,
+                                locationId: locationId,
+                                company: company,
+                              );
+                            }));
+                      },
+                    ),
+                    Divider( color: Color(0xFF2D3748),),
+                    ListTile(
+                      leading: Icon(Icons.edit_note),
+                      title: Text('Edit Materials',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                             color: Color(0xFF2D3748),
+                          )),
+                      onTap: () {
+                        // Add your functionality for this sidebar item
+  Navigator.pop(context);
+                       Navigator.of(context)
+                                .push(CupertinoPageRoute(builder: (context) {
+                              return Materials(
+                              
+                              );
+                            }));
                       },
                     ),
                   ],
@@ -231,20 +449,34 @@ class _HomeState extends State<Home> {
           ),
         ),
       ),
-      backgroundColor: Colors.black,
+      backgroundColor: Color(0xFF0F5540),
       body:IndexedStack(
         index: currentIndex,
         children: [
-          Dashboard(openDrawerCallback: openDrawer,conversation: conversationPage,),
+           Appointment(openDrawerCallback: openDrawer,), 
           Conversations(),
-          AutomationScreen(),
-          Appointment(),
+             NotificationScreen(
+            updateNotificationCount:updateNotificationCount
+          ),
+          DeliveriesScreen(),
+            NotificationScreen2(
+            updateNotificationCount:updateNotificationCount
+          ),
+        
         ],
       ),
       bottomNavigationBar: (kIsWeb )? null :CustomTabBar(
         currentIndex: currentIndex,
         onTap: onTap,
+        updateNotificationCount: updateNotificationCount,
+        notificationCount:notificationCount
       ),
     );
+  }
+    void updateNotificationCount(int count) {
+    setState(() {
+      // Update the notification count
+      notificationCount = count;
+    });
   }
 }
